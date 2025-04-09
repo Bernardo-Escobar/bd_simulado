@@ -65,13 +65,7 @@ int main(){
 
 
     while(true){
-        ssize_t bytesRead = read(fd, &r, sizeof(Registro));
-
-        if (bytesRead == 0) {
-            cout << "FIFO fechado pelo cliente." << endl;
-
-            close(fd);
-        }
+        read(fd, &r, sizeof(Registro));
 
         if(strcmp(r.operacao, "INSERT") == 0){
             pthread_create(&tid_insert, &attr, th_insert, NULL);
@@ -79,5 +73,12 @@ int main(){
         // else if(r.processo == "DELETE"){
             //pthread_create(&tid_delete, &attr, th_delete, NULL);
         // }
+        else if (strcmp(r.operacao, "SAIR") == 0) {
+            cout << "Comando SAIR recebido. Encerrando servidor..." << endl;
+            break;
+        }
     }
+
+    close(fd);
+    unlink(fifo_path); // remove o arquivo FIFO
 }

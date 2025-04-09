@@ -10,8 +10,7 @@ using namespace std;
 
 int main() {
     bool loop = true;
-    int oper;
-    char opcao;
+    int op = 0;
 
     Registro r;
 
@@ -20,11 +19,11 @@ int main() {
     int fd = open(fifo_path, O_WRONLY);
 
     do {
-        cout << "Qual operação desejada? 1-INSERT; 2-DELETE" << endl;
-        cin >> oper;
+        cout << "Qual operação desejada? 1-INSERT; 2-DELETE; 3-SAIR" << endl;
+        cin >> op;
         cin.ignore();
 
-        switch (oper){
+        switch (op){
             case 1:
                 strcpy(r.operacao, "INSERT");
 
@@ -50,6 +49,12 @@ int main() {
                 cin.ignore();
 
                 write(fd, &r, sizeof(Registro));
+            break;
+
+            case 3:
+                strcpy(r.operacao, "SAIR");
+                write(fd, &r, sizeof(Registro));
+                cout << "Comando de encerramento enviado ao servidor." << endl;
 
                 loop = false;
             break;
@@ -57,11 +62,7 @@ int main() {
             default:
                 cout << "Operacao não existe! \n" << endl;
         }
-
-        cout << "\n\nDeseja realizar mais uma operacao? S - Sim; N - Nao" << endl;
-        cin >> opcao;
-    }
-    while (opcao == 'S' || opcao == 's');
+    } while (loop);
     
 
     close(fd);
