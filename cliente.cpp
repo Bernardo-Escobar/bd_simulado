@@ -1,4 +1,10 @@
 #include <iostream>
+#include <string>
+#include <sys/mman.h>
+#include <sys/stat.h>        // For mode constants
+#include <fcntl.h>           // For O_* constants
+#include <unistd.h>          // For ftruncate
+#include <cstring>           // For memcpy
 #include "banco.h"
 
 using namespace std;
@@ -7,9 +13,14 @@ int main() {
     bool loop = true;
     int op;
 
-    list<Registro>::iterator it;
-
     Registro r;
+
+    const char* name = "meu_segmento";
+    const int SIZE = sizeof(Registro);
+
+    // Abrir memória compartilhada existente
+    int shm_fd = shm_open(name, O_RDONLY, 0666);
+    void* ptr = mmap(0, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
     for(int i=0; i<3; i++){
         do {
@@ -25,13 +36,8 @@ int main() {
     
                     cout << "\nNome = ";
                     cin >> r.nome;
-    
-                    // Inserção ordenada:
-                    it = bd.begin();
-                    while (it != bd.end() && it->id < r.id) {
-                        ++it;
-                    }
-                    bd.insert(it, r);
+
+                    memcpy(ptr, &r, SIZE);
     
                     loop = false;
                 break;
@@ -41,8 +47,8 @@ int main() {
     
                     cout << "Id = ";
                     cin >> r.id;
-                    
-                    bd.push_back(r);
+
+                    memcpy(ptr, &r, SIZE);
     
                     loop = false;
                 break;
@@ -54,8 +60,6 @@ int main() {
         while (loop);
     }
 
-    for(const auto& item : bd) {
-        cout << item.operacao << " | " << item.id << " | " << item.nome << endl;
-    }
+    cout << r.operacao << " | " << r.id << " | " << r.nome << endl;
     
 }
