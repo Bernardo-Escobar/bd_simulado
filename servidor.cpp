@@ -1,7 +1,6 @@
 #include <iostream>
-#include <string>
 #include <pthread.h>
-#include <sys/mman.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cstring>
@@ -10,6 +9,7 @@
 using namespace std;
 
 Registro r;
+
 list<Registro> bd;
 
 pthread_mutex_t mutex_bd = PTHREAD_MUTEX_INITIALIZER;
@@ -23,6 +23,10 @@ void *th_insert(void *param){
     }
     bd.insert(it, r);
 
+    for (const auto& item : bd) {
+        cout << item.operacao << " | " << item.id << " | " << item.nome << endl;
+    }
+
     pthread_mutex_unlock(&mutex_bd); // destrava antes de sair
 	pthread_exit(0);
 }
@@ -32,6 +36,11 @@ void *th_delete(void *param){
     pthread_mutex_lock(&mutex_bd);
 
 
+
+    for (const auto& item : bd) {
+        cout << item.operacao << " | " << item.id << " | " << item.nome << endl;
+    }
+
     pthread_mutex_unlock(&mutex_bd); // destrava antes de sair
 	pthread_exit(0);
 }
@@ -39,58 +48,36 @@ void *th_delete(void *param){
 
 int main(){
 
-    bool op = true;
-
     pthread_t tid_insert, tid_delete; /* the thread identifier */
 	pthread_attr_t attr; /* set of attributes for the thread */
 
-    const char* name = "shared_memory";
-    const int SIZE = sizeof(Registro);
+    const char* fifo_path = "fifo";
 
-    // Criar ou abrir memória compartilhada
-    int shm_fd = shm_open(name, O_CREAT | O_RDWR, 0666);
-    if (shm_fd == -1) {
-        cerr << "Erro ao criar memória compartilhada.\n";
-        return 1;
-    }
+    // Criar FIFO (caso não exista)
+    mkfifo(fifo_path, 0666);
 
-    // Definir o tamanho da memória compartilhada
-    if (ftruncate(shm_fd, SIZE) == -1) {
-        cerr << "Erro ao definir tamanho da memória.\n";
-        return 1;
-    }
-
-    // Mapear para o espaço do processo
-    void* ptr = mmap(0, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    if (ptr == MAP_FAILED) {
-        cerr << "Erro ao mapear memória.\n";
-        return 1;
-    }
-
-    Registro r;
-    memcpy(&r, ptr, SIZE);
+    cout << "abrindo FIFO..." << endl;
+    // Abrir FIFO para leitura
+    int fd = open(fifo_path, O_RDONLY);
+    cout << "FIFO aberto com sucesso!" << endl;
 
     pthread_attr_init(&attr);
 
-    pthread_create(&tid_insert, &attr, th_insert, NULL);
-    //pthread_create(&tid_delete, &attr, th_delete, NULL);
 
-    while(op){
-        if(r.operacao == "INSERT"){
-            pthread_join(tid_insert, NULL);
+    while(true){
+        ssize_t bytesRead = read(fd, &r, sizeof(Registro));
 
-            op = false;
+        if (bytesRead == 0) {
+            cout << "FIFO fechado pelo cliente." << endl;
+
+            close(fd);
+        }
+
+        if(strcmp(r.operacao, "INSERT") == 0){
+            pthread_create(&tid_insert, &attr, th_insert, NULL);
         }
         // else if(r.processo == "DELETE"){
-        //     pthread_join(tid_delete, NULL);
+            //pthread_create(&tid_delete, &attr, th_delete, NULL);
         // }
-
-        for (const auto& item : bd) {
-            cout << item.operacao << " | " << item.id << " | " << item.nome << endl;
-        }
     }
-    
-
-    // Remover memória
-    shm_unlink(name);
 }

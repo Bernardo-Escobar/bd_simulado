@@ -2,14 +2,13 @@
     #define BANCO_H
 
     #include <list>
-    #include <string>
 
     using namespace std;
 
     typedef struct {
-        string operacao;
+        char operacao[20];
         int id;
-        string nome;
+        char nome[100];
     } Registro;
 
     extern list<Registro> bd;

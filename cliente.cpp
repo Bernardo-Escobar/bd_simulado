@@ -1,64 +1,70 @@
 #include <iostream>
-#include <string>
-#include <sys/mman.h>
-#include <sys/stat.h>        // For mode constants
-#include <fcntl.h>           // For O_* constants
-#include <unistd.h>          // For ftruncate
-#include <cstring>           // For memcpy
+#include <fstream>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <cstring>
 #include "banco.h"
 
 using namespace std;
 
 int main() {
     bool loop = true;
-    int op;
+    int oper;
+    char opcao;
 
     Registro r;
 
-    const char* name = "meu_segmento";
-    const int SIZE = sizeof(Registro);
+    const char* fifo_path = "fifo";
 
-    // Abrir memória compartilhada existente
-    int shm_fd = shm_open(name, O_RDONLY, 0666);
-    void* ptr = mmap(0, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    int fd = open(fifo_path, O_WRONLY);
 
-    for(int i=0; i<3; i++){
-        do {
-            cout << "Qual operação desejada? 1-INSERT; 2-DELETE" << endl;
-            cin >> op;
-    
-            switch (op){
-                case 1:
-                    r.operacao = "INSERT";
-    
-                    cout << "Id = ";
-                    cin >> r.id;
-    
-                    cout << "\nNome = ";
-                    cin >> r.nome;
+    do {
+        cout << "Qual operação desejada? 1-INSERT; 2-DELETE" << endl;
+        cin >> oper;
+        cin.ignore();
 
-                    memcpy(ptr, &r, SIZE);
-    
-                    loop = false;
-                break;
-        
-                case 2:
-                    r.operacao = "DELETE";
-    
-                    cout << "Id = ";
-                    cin >> r.id;
+        switch (oper){
+            case 1:
+                strcpy(r.operacao, "INSERT");
 
-                    memcpy(ptr, &r, SIZE);
+                cout << "Id = ";
+                cin >> r.id;
+                cin.ignore();
+
+                cout << "\nNome = ";
+                cin.getline(r.nome, 100);
+
+                write(fd, &r, sizeof(Registro));
+
+                cout << "Enviado ao servidor!" << endl;
+
+                cout << r.operacao << " | " << r.id << " | " << r.nome << endl;
+            break;
     
-                    loop = false;
-                break;
-        
-                default:
-                    cout << "Operacao não existe! \n" << endl;
-            }
+            case 2:
+                strcpy(r.operacao, "DELETE");
+
+                cout << "Id = ";
+                cin >> r.id;
+                cin.ignore();
+
+                write(fd, &r, sizeof(Registro));
+
+                loop = false;
+            break;
+    
+            default:
+                cout << "Operacao não existe! \n" << endl;
         }
-        while (loop);
+
+        cout << "\n\nDeseja realizar mais uma operacao? S - Sim; N - Nao" << endl;
+        cin >> opcao;
     }
+    while (opcao == 'S' || opcao == 's');
+    
+
+    close(fd);
 
     cout << r.operacao << " | " << r.id << " | " << r.nome << endl;
     
