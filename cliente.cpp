@@ -9,31 +9,29 @@
 using namespace std;
 
 int main() {
-    Registro r;
+    Registro r; // Struct para armazenar os dados da operação
 
     bool loop = true;
     int op = 0;
 
-    const char* fifo_path = "fifo";
-    int fd = open(fifo_path, O_WRONLY);
+    const char* fifo_path = "fifo"; // Caminho do FIFO usado para comunicação
+    int fd = open(fifo_path, O_WRONLY); // Abre o FIFO para escrita (cliente -> servidor)
 
     do {
         cout << "Qual operação desejada? 1-INSERT; 2-DELETE; 3-UPDATE; 4-SELECT; 5-SAIR" << endl;
         cin >> op;
-        cin.ignore();
+        cin.ignore(); // Limpa o caractere '\n' do buffer
 
         switch (op){
             case 1:
-                strcpy(r.operacao, "INSERT");
+                strcpy(r.operacao, "INSERT"); // Define a operação
 
                 cout << "\nNome = ";
-                cin.getline(r.nome, 100);
+                cin.getline(r.nome, 100); // Lê nome do usuário
 
-                write(fd, &r, sizeof(Registro));
+                write(fd, &r, sizeof(Registro)); // Envia struct para o servidor
 
-                cout << "Enviado ao servidor!" << endl;
-
-                cout << r.operacao << " | " << r.nome << endl;
+                cout << "\nEnviado ao servidor!\n" << endl;
             break;
     
             case 2:
@@ -44,6 +42,8 @@ int main() {
                 cin.ignore();
 
                 write(fd, &r, sizeof(Registro));
+
+                cout << "\nEnviado ao servidor!\n" << endl;
             break;
 
             case 3:
@@ -57,6 +57,8 @@ int main() {
                 cin.getline(r.nome, 100);
 
                 write(fd, &r, sizeof(Registro));
+
+                cout << "\nEnviado ao servidor!\n" << endl;
             break;
 
             case 4: {
@@ -64,47 +66,51 @@ int main() {
 
                 int opcao;
 
-                cout << "1 - Visualizar tudo\n2 - Visualizar por nome" << endl;
+                cout << "\n1 - Visualizar tudo\n2 - Visualizar por nome" << endl;
                 cin >> opcao;
                 cin.ignore();  // limpar o buffer
 
                 switch(opcao){
                     case 1:
-                        r.id = -1; // ID -1 indica "mostrar tudo"
+                        r.id = -1; // ID -1 sinaliza visualização geral
                     break;
 
                     case 2:
-                        r.id = -2;
+                        r.id = -2; // ID -2 sinaliza visualização por nome
                         cout << "Nome = ";
                         cin.getline(r.nome, 100);
                     break;
                 }
 
-                // Envia solicitação ao servidor
+                // Envia solicitação SELECT ao servidor
                 write(fd, &r, sizeof(Registro));
 
-                // FIFO de resposta
+                // Cria FIFO para resposta e abre para leitura
                 const char* fifo_resposta = "fifo_resposta";
                 mkfifo(fifo_resposta, 0666);
                 int fd_resposta = open(fifo_resposta, O_RDONLY);
 
-                
+                cout << endl;
+
+                // Lê e imprime os registros retornados
                 Registro resposta;
                 while (read(fd_resposta, &resposta, sizeof(Registro)) > 0) {
                     if (strcmp(resposta.operacao, "FIM") == 0) break;
                     cout << resposta.id << " | " << resposta.nome << endl;
                 }
 
-                close(fd_resposta);
+                cout << endl;
+
+                close(fd_resposta); // Fecha FIFO de resposta
             }
             break;
 
             case 5:
-                strcpy(r.operacao, "SAIR");
+                strcpy(r.operacao, "SAIR"); // Define operação de encerramento
                 write(fd, &r, sizeof(Registro));
                 cout << "Comando de encerramento enviado ao servidor." << endl;
 
-                loop = false;
+                loop = false; // Encerra loop
             break;
     
             default:
@@ -113,5 +119,5 @@ int main() {
     } while (loop);
     
 
-    close(fd);
+    close(fd); // Fecha FIFO principal
 }

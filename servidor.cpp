@@ -8,42 +8,42 @@
 
 using namespace std;
 
-Registro r;
+Registro r; // Struct global usada para comunicação com as threads
 
-list<Registro> bd;
+list<Registro> bd; // Banco de dados em memória
 
-int next_id = 0;
+int next_id = 0; // Contador para IDs automáticos
 
-const char* fifo_resposta = "fifo_resposta";
+const char* fifo_resposta = "fifo_resposta"; // Caminho da FIFO de resposta
 
-pthread_mutex_t mutex_bd = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_bd = PTHREAD_MUTEX_INITIALIZER; // Mutex para controle de concorrência
 
+// Thread para inserção
 void *th_insert(void *param){
-    pthread_mutex_lock(&mutex_bd); // trava
+    pthread_mutex_lock(&mutex_bd); // Trava acesso à base
 
-    r.id = next_id++;
+    r.id = next_id++; // Gera novo ID
 
-    bd.push_back(r);
+    bd.push_back(r); // Adiciona registro
 
-    for (const auto& item : bd) {
-        cout << item.operacao << " | " << item.id << " | " << item.nome << endl;
-    }
+    cout << "Registro com ID " << r.id << " e NOME " << r.nome << " inserido com sucesso!\n" << endl;
 
-    pthread_mutex_unlock(&mutex_bd); // destrava antes de sair
+    pthread_mutex_unlock(&mutex_bd); // Libera acesso
 	pthread_exit(0);
 }
 
+// Thread para remoção
 void *th_delete(void *param){
     pthread_mutex_lock(&mutex_bd);
 
     bool encontrado = false;
 
-    // Encontra o registro com o id correspondente e remove
+    // Busca o registro e remove, se encontrar
     for (auto it = bd.begin(); it != bd.end(); ++it) {
         if (it->id == r.id) {
             bd.erase(it);
 
-            cout << "Registro com ID " << r.id << " deletado com sucesso!" << endl;
+            cout << "Registro com ID " << r.id << " deletado com sucesso!\n" << endl;
 
             encontrado = true;
             break;
@@ -51,28 +51,25 @@ void *th_delete(void *param){
     }
 
     if (!encontrado) {
-        cout << "Registro com ID " << r.id << " não encontrado para remoção." << endl;
-    }
-
-    for (const auto& item : bd) {
-        cout << item.operacao << " | " << item.id << " | " << item.nome << endl;
+        cout << "Registro com ID " << r.id << " não encontrado para remoção.\n" << endl;
     }
 
     pthread_mutex_unlock(&mutex_bd); // destrava antes de sair
 	pthread_exit(0);
 }
 
+// Thread para atualização
 void *th_update(void *param){
     pthread_mutex_lock(&mutex_bd);
 
     bool encontrado = false;
 
-    // Encontra o registro com o id correspondente e atualiza
+    // Busca e atualiza nome se o ID for encontrado
     for (auto& it : bd) {
         if (it.id == r.id) {
             strcpy(it.nome, r.nome); // Atualiza o nome
 
-            cout << "Registro com ID " << r.id << " atualizado com sucesso!" << endl;
+            cout << "Registro com ID " << r.id << " atualizado com sucesso!\n" << endl;
 
             encontrado = true;
             break;
@@ -80,24 +77,21 @@ void *th_update(void *param){
     }
 
     if (!encontrado) {
-        cout << "Registro com ID " << r.id << " não encontrado para atualização." << endl;
-    }
-
-    for (const auto& item : bd) {
-        cout << item.operacao << " | " << item.id << " | " << item.nome << endl;
+        cout << "Registro com ID " << r.id << " não encontrado para atualização.\n" << endl;
     }
 
     pthread_mutex_unlock(&mutex_bd); // destrava antes de sair
 	pthread_exit(0);
 }
 
+// Thread para SELECT (visualização)
 void *th_select(void *param){
     pthread_mutex_lock(&mutex_bd);
 
-    // Abrir FIFO da reposta do SELECT
+    // Abre FIFO para escrita (resposta ao cliente)
     int fd_resposta = open(fifo_resposta, O_WRONLY);
 
-    if(r.id == -1){ // Visualizar tudo
+    if(r.id == -1){ // Visualizar todos os registros
         for(const auto& item : bd){
             write(fd_resposta, &item, sizeof(Registro));
         }
@@ -110,7 +104,7 @@ void *th_select(void *param){
         }
     }
 
-    // Enviar sinal de fim
+    // Envia sinal de término da resposta
     Registro fim;
     strcpy(fim.operacao, "FIM");
     write(fd_resposta, &fim, sizeof(Registro));
@@ -122,24 +116,22 @@ void *th_select(void *param){
 
 int main(){
 
-    pthread_t tid_insert, tid_delete, tid_update, tid_select; /* the thread identifier */
-	pthread_attr_t attr; /* set of attributes for the thread */
+    pthread_t tid_insert, tid_delete, tid_update, tid_select;
+	pthread_attr_t attr;
 
     const char* fifo_path = "fifo";
 
-    // Criar FIFO (caso não exista)
-    mkfifo(fifo_path, 0666);
+    mkfifo(fifo_path, 0666); // Cria FIFO se necessário
 
     cout << "abrindo FIFO..." << endl;
-    // Abrir FIFO para leitura
-    int fd = open(fifo_path, O_RDONLY);
+    int fd = open(fifo_path, O_RDONLY); // Abre FIFO para leitura (bloqueia até o cliente abrir)
     cout << "FIFO aberto com sucesso!" << endl;
 
-    pthread_attr_init(&attr);
+    pthread_attr_init(&attr); // Inicializa atributos da thread
 
 
     while(true){
-        read(fd, &r, sizeof(Registro));
+        read(fd, &r, sizeof(Registro)); // Lê operação do cliente
 
         if(strcmp(r.operacao, "INSERT") == 0){
             pthread_create(&tid_insert, &attr, th_insert, NULL);
@@ -160,6 +152,6 @@ int main(){
     }
 
     close(fd);
-    unlink(fifo_path); // remove o arquivo FIFO
-    unlink(fifo_resposta);
+    unlink(fifo_path); // Remove FIFO principal
+    unlink(fifo_resposta); // Remove FIFO de resposta
 }
