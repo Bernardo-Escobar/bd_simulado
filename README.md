@@ -1,4 +1,4 @@
-# 💾 Banco-de-Dados-Simulado — Simulador de Banco de Dados com IPC e Threads
+# 💾 Simulador de Banco de Dados com IPC e Threads
 
 Projeto desenvolvido para a disciplina de **Sistemas Operacionais (M1)** da Universidade do Vale do Itajaí (UNIVALI), com foco na aplicação de conceitos como **IPC**, **threads**, **concorrência** e **sincronização** por meio de um simulador de banco de dados em C++.
 
